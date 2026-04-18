@@ -1,0 +1,8 @@
+twitter:
+  bearer_token: ""
+tiktok:
+  access_token: ""
+instagram:
+  token: ""
+youtube:
+  api_key: ""
