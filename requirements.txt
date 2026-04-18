@@ -1,0 +1,3 @@
+streamlit==1.28.0
+yt-dlp moviepy[optional] opencv-python whisper paddleocr torch transformers
+tweepy TikTokApi instagrapi google-api-python-client pyyaml
