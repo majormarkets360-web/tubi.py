@@ -11,3 +11,4 @@ TikTokApi
 instagrapi 
 google-api-python-client 
 pyyaml
+Pillow>=10.0.0,<11.0.0
