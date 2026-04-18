@@ -2,31 +2,29 @@ import cv2
 import numpy as np
 import time
 import whisper
-import paddleocr
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip
 
 
 class ShowClipGenerator:
     def __init__(self, segment_path):
-        self.segment_path = segment_path  # FIX: was missing
+        self.segment_path = segment_path
         self.segment = VideoFileClip(segment_path)
         self.model = whisper.load_model("base")
-        self.ocr = paddleocr.PaddleOCR(use_angle_cls=True, show_log=False)
+        # paddleocr removed — not compatible with Python 3.12+
 
     def generate_multi_clips(self, num_clips=8, clip_length=60):
         clips = []
         total_duration = self.segment.duration
 
-        # 1. Audio peaks
+        # Audio peaks
         audio = self.segment.audio.to_soundarray()
         audio_mono = np.abs(audio[:, 0])
         threshold = np.percentile(audio_mono, 92)
         peaks = np.where(audio_mono > threshold)[0]
 
-        # 2. Scene changes + OCR text detection
+        # Scene change detection only (no OCR)
         cap = cv2.VideoCapture(self.segment_path)
         scene_changes = []
-        text_scenes = []
         frame_idx = 0
         prev_gray = None
 
@@ -41,16 +39,8 @@ class ShowClipGenerator:
                     if np.mean(diff) > 25:
                         scene_changes.append(frame_idx / self.segment.fps)
                 prev_gray = gray
-
-                try:
-                    ocr_result = self.ocr.ocr(frame, cls=True)
-                    if ocr_result and ocr_result[0]:
-                        text_scenes.append(frame_idx / self.segment.fps)
-                except Exception:
-                    pass
-
             frame_idx += 1
-        cap.release()  # FIX: was never released
+        cap.release()
 
         # Build highlight times safely
         arrays = []
@@ -58,22 +48,18 @@ class ShowClipGenerator:
             arrays.append(peaks[::max(1, len(peaks) // num_clips)] / self.segment.fps)
         if scene_changes:
             arrays.append(np.array(scene_changes))
-        if text_scenes:
-            arrays.append(np.array(text_scenes))
 
         if arrays:
             highlight_times = np.unique(np.concatenate(arrays))
         else:
-            # Fallback: evenly spaced clips
             highlight_times = np.linspace(0, max(0, total_duration - clip_length), num_clips)
 
-        # Generate clips
         for i in range(num_clips):
             idx = int(i * len(highlight_times) / num_clips)
             start_time = max(0, highlight_times[idx] - 10)
             end_time = min(total_duration, start_time + clip_length)
 
-            if end_time - start_time < 5:  # skip clips too short
+            if end_time - start_time < 5:
                 continue
 
             clip = self.segment.subclip(start_time, end_time)
@@ -97,4 +83,4 @@ class ShowClipGenerator:
                         .crossfadeout(0.5))
             return CompositeVideoClip([clip, txt_clip])
         except Exception:
-            return clip  # fallback: return clip without overlay if ImageMagick missing
+            return clip
